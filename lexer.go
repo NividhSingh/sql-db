@@ -465,27 +465,27 @@ func tokenTypeToString(t TokenType) string {
 }
 
 // main is the test harness that creates a lexer and prints tokens.
-func main() {
-	// Sample SQL-like input.
-	input := "SELECT id, name FROM users WHERE age >= 21;"
+// func main() {
+// 	// Sample SQL-like input.
+// 	input := "SELECT id, name FROM users WHERE age >= 21;"
 
-	// Initialize the lexer.
-	lexer := &Lexer{
-		input:   input,
-		start:   0,
-		current: 0,
-		line:    1,
-	}
+// 	// Initialize the lexer.
+// 	lexer := &Lexer{
+// 		input:   input,
+// 		start:   0,
+// 		current: 0,
+// 		line:    1,
+// 	}
 
-	fmt.Println("Lexing input:", input)
-	fmt.Println("Tokens:")
+// 	fmt.Println("Lexing input:", input)
+// 	fmt.Println("Tokens:")
 
-	// Loop through the tokens until we reach EOF.
-	for {
-		token := getNextToken(lexer)
-		fmt.Printf("Type: %-15s Value: %q\n", tokenTypeToString(token._type), token.value)
-		if token._type == TOKEN_EOF {
-			break
-		}
-	}
-}
+// 	// Loop through the tokens until we reach EOF.
+// 	for {
+// 		token := getNextToken(lexer)
+// 		fmt.Printf("Type: %-15s Value: %q\n", tokenTypeToString(token._type), token.value)
+// 		if token._type == TOKEN_EOF {
+// 			break
+// 		}
+// 	}
+// }
