@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -20,6 +19,7 @@ type Table struct {
 
 var database = make(map[string]Table)
 
+/*
 func processSelectFromTable(command string) Table {
 	tokens := strings.Fields(command)
 	if len(tokens) < 4 || strings.ToUpper(tokens[0]) != "SELECT" {
@@ -130,8 +130,9 @@ func processSelectFromTable(command string) Table {
 	}
 	return resultTable
 }
-
+*/
 // printTable prints a single table in grid format.
+
 func printTable(table Table) {
 	if len(table.Columns) == 0 {
 		fmt.Println("Empty result")
@@ -176,96 +177,96 @@ func printTable(table Table) {
 
 // Existing helper functions
 
-func processInsertIntoTable(command string) {
-	tokens := strings.Fields(command)
-	if len(tokens) < 4 || strings.ToUpper(tokens[0]) != "INSERT" || strings.ToUpper(tokens[1]) != "INTO" {
-		fmt.Println("Invalid command")
-		return
-	}
-	tableName := tokens[2]
-	if !tableExists(tableName) {
-		fmt.Printf("Table %s does not exist\n", tableName)
-		return
-	}
-	command = strings.Join(tokens[3:], " ")
-	command = strings.TrimSpace(command)
-	newColumnNames := strings.Split(getNextInParenthis(command), ",")
-	command = command[len(getNextInParenthis(command))+3:] // Remove the column names part
-	command = strings.TrimSpace(command)
-	tokens = strings.Fields(command)
-	if len(tokens) < 2 || strings.ToUpper(tokens[0]) != "VALUES" {
-		fmt.Println("Invalid command")
-		return
-	}
-	command = getNextInParenthis(strings.Join(tokens[1:], " "))
-	newColumnValues := strings.Split(command, ",")
-	for i, v := range newColumnValues {
-		newColumnValues[i] = strings.TrimSpace(v)
-		newColumnNames[i] = strings.TrimSpace(newColumnNames[i])
-	}
-	table := database[tableName]
-	newRow := make(map[string]interface{})
-	for _, col := range table.Columns {
-		for j, column := range newColumnNames {
-			if col.Name == column {
-				for _, constraint := range col.Conditions {
-					if constraint == "PRIMARY KEY" || constraint == "UNIQUE" {
-						if !checkUnique(tableName, col.Name, newColumnValues[j]) {
-							fmt.Printf("Column %s has to be unique\n", col.Name)
-							return
-						}
-					}
-					if strings.HasPrefix(constraint, "DEFAULT") {
-						if newColumnValues[j] == "" {
-							newColumnValues[j] = strings.TrimPrefix(constraint, "DEFAULT ")
-						}
-					}
-					if constraint == "NOT NULL" {
-						if newColumnValues[j] == "" {
-							fmt.Printf("Column %s cannot be NULL\n", col.Name)
-							return
-						}
-					}
-				}
-				switch strings.ToUpper(col.Type) {
-				case "INT":
-					if newColumnValues[j] != "" {
-						if _, err := strconv.Atoi(newColumnValues[j]); err != nil {
-							fmt.Printf("Column %s must be an integer\n", col.Name)
-							return
-						} else {
-							newRow[col.Name], _ = strconv.Atoi(newColumnValues[j])
-						}
-					}
-				case "FLOAT":
-					if newColumnValues[j] != "" {
-						floatVal, err := strconv.ParseFloat(newColumnValues[j], 64)
-						if err != nil {
-							fmt.Printf("Column %s must be a float\n", col.Name)
-							return
-						} else {
-							newRow[col.Name] = floatVal
-						}
-					} else {
-						newRow[col.Name] = nil
-					}
-				default:
-					if strings.HasPrefix(strings.ToUpper(col.Type), "VARCHAR") {
-						maxLength, _ := strconv.Atoi(getNextInParenthis(col.Type))
-						if len(newColumnValues[j]) > maxLength {
-							fmt.Printf("Column %s exceeds maximum length of %d\n", col.Name, maxLength)
-							return
-						}
-						newRow[col.Name] = newColumnValues[j]
-					}
-				}
-			}
-		}
-	}
-	table.Rows = append(table.Rows, newRow)
-	database[tableName] = table
-	fmt.Printf("Inserted row into %s\n", tableName)
-}
+// func processInsertIntoTable(command string) {
+// 	tokens := strings.Fields(command)
+// 	if len(tokens) < 4 || strings.ToUpper(tokens[0]) != "INSERT" || strings.ToUpper(tokens[1]) != "INTO" {
+// 		fmt.Println("Invalid command")
+// 		return
+// 	}
+// 	tableName := tokens[2]
+// 	if !tableExists(tableName) {
+// 		fmt.Printf("Table %s does not exist\n", tableName)
+// 		return
+// 	}
+// 	command = strings.Join(tokens[3:], " ")
+// 	command = strings.TrimSpace(command)
+// 	newColumnNames := strings.Split(getNextInParenthis(command), ",")
+// 	command = command[len(getNextInParenthis(command))+3:] // Remove the column names part
+// 	command = strings.TrimSpace(command)
+// 	tokens = strings.Fields(command)
+// 	if len(tokens) < 2 || strings.ToUpper(tokens[0]) != "VALUES" {
+// 		fmt.Println("Invalid command")
+// 		return
+// 	}
+// 	command = getNextInParenthis(strings.Join(tokens[1:], " "))
+// 	newColumnValues := strings.Split(command, ",")
+// 	for i, v := range newColumnValues {
+// 		newColumnValues[i] = strings.TrimSpace(v)
+// 		newColumnNames[i] = strings.TrimSpace(newColumnNames[i])
+// 	}
+// 	table := database[tableName]
+// 	newRow := make(map[string]interface{})
+// 	for _, col := range table.Columns {
+// 		for j, column := range newColumnNames {
+// 			if col.Name == column {
+// 				for _, constraint := range col.Conditions {
+// 					if constraint == "PRIMARY KEY" || constraint == "UNIQUE" {
+// 						if !checkUnique(tableName, col.Name, newColumnValues[j]) {
+// 							fmt.Printf("Column %s has to be unique\n", col.Name)
+// 							return
+// 						}
+// 					}
+// 					if strings.HasPrefix(constraint, "DEFAULT") {
+// 						if newColumnValues[j] == "" {
+// 							newColumnValues[j] = strings.TrimPrefix(constraint, "DEFAULT ")
+// 						}
+// 					}
+// 					if constraint == "NOT NULL" {
+// 						if newColumnValues[j] == "" {
+// 							fmt.Printf("Column %s cannot be NULL\n", col.Name)
+// 							return
+// 						}
+// 					}
+// 				}
+// 				switch strings.ToUpper(col.Type) {
+// 				case "INT":
+// 					if newColumnValues[j] != "" {
+// 						if _, err := strconv.Atoi(newColumnValues[j]); err != nil {
+// 							fmt.Printf("Column %s must be an integer\n", col.Name)
+// 							return
+// 						} else {
+// 							newRow[col.Name], _ = strconv.Atoi(newColumnValues[j])
+// 						}
+// 					}
+// 				case "FLOAT":
+// 					if newColumnValues[j] != "" {
+// 						floatVal, err := strconv.ParseFloat(newColumnValues[j], 64)
+// 						if err != nil {
+// 							fmt.Printf("Column %s must be a float\n", col.Name)
+// 							return
+// 						} else {
+// 							newRow[col.Name] = floatVal
+// 						}
+// 					} else {
+// 						newRow[col.Name] = nil
+// 					}
+// 				default:
+// 					if strings.HasPrefix(strings.ToUpper(col.Type), "VARCHAR") {
+// 						maxLength, _ := strconv.Atoi(getNextInParenthis(col.Type))
+// 						if len(newColumnValues[j]) > maxLength {
+// 							fmt.Printf("Column %s exceeds maximum length of %d\n", col.Name, maxLength)
+// 							return
+// 						}
+// 						newRow[col.Name] = newColumnValues[j]
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+// 	table.Rows = append(table.Rows, newRow)
+// 	database[tableName] = table
+// 	fmt.Printf("Inserted row into %s\n", tableName)
+// }
 
 func checkUnique(tableName string, columnName string, value string) bool {
 	for _, row := range database[tableName].Rows {
@@ -276,118 +277,19 @@ func checkUnique(tableName string, columnName string, value string) bool {
 	return true
 }
 
-func processCreateTableCommand(command string) {
-	tokens := strings.Fields(command)
-	if len(tokens) < 4 || strings.ToUpper(tokens[0]) != "CREATE" || strings.ToUpper(tokens[1]) != "TABLE" {
-		fmt.Println("Invalid command")
-		return
-	}
-	var tableName string
-	var colDefStartIndex int
-	if strings.ToUpper(tokens[2]) == "IF" {
-		if len(tokens) < 6 || strings.ToUpper(tokens[3]) != "NOT" || strings.ToUpper(tokens[4]) != "EXISTS" {
-			fmt.Println("Invalid syntax for IF NOT EXISTS clause")
-			return
-		}
-		tableName = tokens[5]
-		colDefStartIndex = 6
-		if tableExists(tableName) {
-			fmt.Printf("Table %s already exists\n", tableName)
-			return
-		}
-	} else {
-		tableName = tokens[2]
-		colDefStartIndex = 3
-		if tableExists(tableName) {
-			fmt.Printf("Table %s already exists\n", tableName)
-			return
-		}
-	}
-	rest := strings.Join(tokens[colDefStartIndex:], " ")
-	rest = strings.TrimSpace(rest)
-	if !strings.HasPrefix(rest, "(") || !strings.HasSuffix(rest, ")") {
-		fmt.Println("Invalid syntax for column definitions")
-		return
-	}
-	rest = getNextInParenthis(rest)
-	values := strings.Split(rest, ",")
-	var columns []Column
-	for _, v := range values {
-		v = strings.TrimSpace(v)
-		parts := strings.Split(v, " ")
-		if len(parts) < 2 {
-			fmt.Println("Invalid command")
-			return
-		}
-		name := strings.TrimSpace(parts[0])
-		typeName := strings.TrimSpace(parts[1])
-		var conditions []string
-		parts = parts[2:]
-		for len(parts) > 0 {
-			if parts[0] == "PRIMARY" {
-				if len(parts) < 2 || parts[1] != "KEY" {
-					fmt.Println("Invalid command")
-					return
-				}
-				conditions = append(conditions, "PRIMARY KEY")
-				parts = parts[2:]
-			} else if parts[0] == "NOT" {
-				if len(parts) < 2 || parts[1] != "NULL" {
-					fmt.Println("Invalid command")
-					return
-				}
-				conditions = append(conditions, "NOT NULL")
-				parts = parts[2:]
-			} else if parts[0] == "UNIQUE" {
-				conditions = append(conditions, "UNIQUE")
-				parts = parts[1:]
-			} else if parts[0] == "DEFAULT" {
-				if len(parts) < 2 {
-					fmt.Println("Invalid command")
-					return
-				}
-				conditions = append(conditions, "DEFAULT "+parts[1])
-				parts = parts[2:]
-			} else {
-				parts = parts[1:]
-			}
-		}
-		newColumn := Column{
-			Name:       name,
-			Type:       typeName,
-			Conditions: conditions,
-		}
-		for _, column := range columns {
-			if column.Name == newColumn.Name {
-				fmt.Printf("Duplicate column name: %s\n", newColumn.Name)
-				return
-			}
-		}
-		columns = append(columns, newColumn)
-	}
-	database[tableName] = Table{
-		Name:    tableName,
-		Columns: columns,
-	}
+func createColumn(newName string, newType string, newConditions []string) Column {
+	return Column{Name: newName, Type: newType, Conditions: newConditions}
 }
 
-func getNextInParenthis(s string) string {
-	start := strings.Index(s, "(")
-	if start == -1 {
-		return ""
+func processCreateTableCommand(newName string, newColumns []Column) {
+	if tableExists(newName) {
+		// Error table exists
+		return
 	}
-	count := 1
-	for i := start + 1; i < len(s); i++ {
-		if s[i] == '(' {
-			count++
-		} else if s[i] == ')' {
-			count--
-			if count == 0 {
-				return s[start+1 : i]
-			}
-		}
+	database[newName] = Table{
+		Name:    newName,
+		Columns: newColumns,
 	}
-	return s
 }
 
 func printDatabase() {
