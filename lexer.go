@@ -353,6 +353,8 @@ func LookupKeyword(value string) TokenType {
 
 	case "TABLE":
 		return TOKEN_TABLE
+	case "INTO":
+		return TOKEN_INTO
 
 	default:
 		return TOKEN_IDENTIFIER
