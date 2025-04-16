@@ -6,9 +6,10 @@ import (
 )
 
 type Column struct {
-	Name       string
-	Type       string
-	Conditions []string
+	Name         string
+	Type         string
+	Conditions   []string
+	varCharLimit int
 }
 
 type Table struct {
@@ -281,7 +282,7 @@ func createColumn(newName string, newType string, newConditions []string) Column
 	return Column{Name: newName, Type: newType, Conditions: newConditions}
 }
 
-func processCreateTableCommand(newName string, newColumns []Column) {
+func createTable(newName string, newColumns []Column) {
 	if tableExists(newName) {
 		// Error table exists
 		return

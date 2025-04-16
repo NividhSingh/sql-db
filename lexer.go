@@ -16,6 +16,7 @@ const (
 	TOKEN_VARCHAR
 	TOKEN_FLOAT
 	TOKEN_STAR
+	TOKEN_NULL_LITERAL
 	TOKEN_COMMA
 	TOKEN_SEMICOLON
 	TOKEN_LPAREN
@@ -437,36 +438,12 @@ func getNextToken(lexer *Lexer) Token {
 	}
 }
 
-// tokenTypeToString returns a string representation for a TokenType.
-// (This is a simple helper for printing tokens.)
 func tokenTypeToString(t TokenType) string {
 	switch t {
 	case TOKEN_EOF:
 		return "EOF"
 	case TOKEN_ILLEGAL:
 		return "ILLEGAL"
-	case TOKEN_INT:
-		return "INT"
-	case TOKEN_DOT:
-		return "DOT"
-	case TOKEN_VARCHAR:
-		return "VARCHAR"
-	case TOKEN_FLOAT:
-		return "FLOAT"
-	case TOKEN_STAR:
-		return "STAR"
-	case TOKEN_COMMA:
-		return "COMMA"
-	case TOKEN_SEMICOLON:
-		return "SEMICOLON"
-	case TOKEN_LPAREN:
-		return "LPAREN"
-	case TOKEN_RPAREN:
-		return "RPAREN"
-	case TOKEN_SINGLE_QUOTE:
-		return "SINGLE_QUOTE"
-	case TOKEN_DOUBLE_QUOTE:
-		return "DOUBLE_QUOTE"
 	case TOKEN_INT_LITERAL:
 		return "INT_LITERAL"
 	case TOKEN_VARCHAR_LITERAL:
@@ -475,16 +452,54 @@ func tokenTypeToString(t TokenType) string {
 		return "FLOAT_LITERAL"
 	case TOKEN_BOOLEAN_LITERAL:
 		return "BOOLEAN_LITERAL"
+	case TOKEN_NULL_LITERAL:
+		return "NULL_LITERAL"
 	case TOKEN_IDENTIFIER:
 		return "IDENTIFIER"
-	case TOKEN_FUNCTION:
-		return "FUNCTION"
-	case TOKEN_TABLE:
-		return "TABLE"
+	case TOKEN_SELECT:
+		return "SELECT"
 	case TOKEN_CREATE:
 		return "CREATE"
-
-	// Extend this as needed for the rest of the token types...
+	case TOKEN_TABLE:
+		return "TABLE"
+	case TOKEN_VARCHAR:
+		return "VARCHAR"
+	case TOKEN_INT:
+		return "INT"
+	case TOKEN_INSERT:
+		return "INSERT"
+	case TOKEN_INTO:
+		return "INTO"
+	case TOKEN_VALUES:
+		return "VALUES"
+	case TOKEN_FROM:
+		return "FROM"
+	case TOKEN_AS:
+		return "AS"
+	case TOKEN_PRIMARY:
+		return "PRIMARY"
+	case TOKEN_KEY:
+		return "KEY"
+	case TOKEN_LPAREN:
+		return "LPAREN"
+	case TOKEN_RPAREN:
+		return "RPAREN"
+	case TOKEN_COMMA:
+		return "COMMA"
+	case TOKEN_SEMICOLON:
+		return "SEMICOLON"
+	case TOKEN_SINGLE_QUOTE:
+		return "SINGLE_QUOTE"
+	case TOKEN_COUNT:
+		return "COUNT"
+	case TOKEN_SUM:
+		return "SUM"
+	case TOKEN_AVG:
+		return "AVG"
+	case TOKEN_MIN:
+		return "MIN"
+	case TOKEN_MAX:
+		return "MAX"
 	default:
 		return fmt.Sprintf("TokenType(%d)", t)
 	}
