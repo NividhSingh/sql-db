@@ -113,6 +113,7 @@ func selectFromAST(selectNode *ASTNode) {
 	tableName := selectNode.tableName
 	selectColumns := selectNode.columns
 	selectColumnNames := selectNode.columnName
+
 }
 
 func evalExpression(expr *ASTNode, row map[string]interface{}) interface{} {
@@ -297,6 +298,16 @@ func groupByAndFunctions(groupBy []string, functionColumns map[string][]string, 
 				}
 			}
 			newTable.Rows = append(newTable.Rows, newRow)
+		}
+	}
+
+	for i, _ := range newTable.Rows {
+		for functionCol, functions := range functionColumns {
+			for _, function := range functions {
+				if function == "AVG" {
+					newTable.Rows[i][functionCol+"AVG"] = newTable.Rows[i][functionCol+"SUM"] / newTable.Rows[i][functionCol+"COUNT"]
+				}
+			}
 		}
 	}
 
