@@ -163,7 +163,7 @@ func groupByAndFunctions(groupBy []string, functionColumns map[string][]string, 
 	newTableName := "table_after_group_by_and_functions"
 	newColumns := []Column{}
 
-	// Add group-by columns to new table schema
+	// Add group-by columns to new table schema.
 	for _, groupCol := range groupBy {
 		found := false
 		for _, column := range table.Columns {
@@ -184,15 +184,12 @@ func groupByAndFunctions(groupBy []string, functionColumns map[string][]string, 
 		}
 	}
 
-	// Add function result columns
+	// Add function result columns.
 	for functionCol, functions := range functionColumns {
 		found := false
 		for _, column := range table.Columns {
 			if column.Name == functionCol {
-				countColumn := false
-				sumColumn := false
-				avgRequested := false
-
+				var countColumn, sumColumn, avgRequested bool
 				for _, function := range functions {
 					funcName := strings.ToUpper(function)
 					switch funcName {
@@ -210,7 +207,7 @@ func groupByAndFunctions(groupBy []string, functionColumns map[string][]string, 
 						functionResult: true,
 					})
 				}
-
+				// Always add COUNT if it wasn't specified.
 				if !countColumn {
 					newColumns = append(newColumns, Column{
 						Name:           column.Name + "COUNT",
@@ -220,6 +217,7 @@ func groupByAndFunctions(groupBy []string, functionColumns map[string][]string, 
 					})
 					functionColumns[functionCol] = append(functionColumns[functionCol], "COUNT")
 				}
+				// If AVG was requested and no SUM was provided, add a SUM column.
 				if avgRequested && !sumColumn {
 					newColumns = append(newColumns, Column{
 						Name:           column.Name + "SUM",
@@ -244,56 +242,59 @@ func groupByAndFunctions(groupBy []string, functionColumns map[string][]string, 
 		Rows:    []map[string]interface{}{},
 	}
 
+	// Process each row of the input table for grouping and aggregation.
 	for _, row := range table.Rows {
-		foundMatch := false
-		for i, newTableRow := range newTable.Rows {
+		groupFound := false
+		// Look for an existing aggregate row in newTable that matches all group-by columns.
+		for i := range newTable.Rows {
 			matches := true
 			for _, col := range groupBy {
-				if row[col] != newTableRow[col] {
+				if newTable.Rows[i][col] != row[col] {
 					matches = false
 					break
 				}
 			}
 			if matches {
-				newRow := newTableRow
+				// Update aggregated values directly in newTable.Rows[i].
 				for functionCol, functions := range functionColumns {
 					for _, function := range functions {
 						key := functionCol + strings.ToUpper(function)
 						switch strings.ToUpper(function) {
 						case "COUNT":
-							newRow[key] = newRow[key].(int) + 1
+							newTable.Rows[i][key] = newTable.Rows[i][key].(float64) + 1.0
 						case "SUM":
-							newRow[key] = newRow[key].(float64) + toFloat64(row[functionCol])
+							newTable.Rows[i][key] = newTable.Rows[i][key].(float64) + toFloat64(row[functionCol])
 						case "MAX":
-							newRow[key] = max(newRow[key], row[functionCol])
+							newTable.Rows[i][key] = max(newTable.Rows[i][key].(float64), toFloat64(row[functionCol]))
 						case "MIN":
-							newRow[key] = min(newRow[key], row[functionCol])
+							newTable.Rows[i][key] = min(newTable.Rows[i][key].(float64), toFloat64(row[functionCol]))
 						}
 					}
 				}
-				newTable.Rows[i] = newRow
-				foundMatch = true
+				groupFound = true
 				break
 			}
 		}
-
-		if !foundMatch {
-			newRow := map[string]interface{}{}
+		// Create a new aggregate row if no matching group was found.
+		if !groupFound {
+			newRow := make(map[string]interface{})
+			// Copy over the group-by column values.
 			for _, col := range groupBy {
 				newRow[col] = row[col]
 			}
+			// Initialize aggregated values.
 			for functionCol, functions := range functionColumns {
 				for _, function := range functions {
 					key := functionCol + strings.ToUpper(function)
 					switch strings.ToUpper(function) {
 					case "COUNT":
-						newRow[key] = 1
+						newRow[key] = 1.0
 					case "SUM":
 						newRow[key] = toFloat64(row[functionCol])
 					case "MAX":
-						newRow[key] = row[functionCol]
+						newRow[key] = toFloat64(row[functionCol])
 					case "MIN":
-						newRow[key] = row[functionCol]
+						newRow[key] = toFloat64(row[functionCol])
 					}
 				}
 			}
@@ -301,15 +302,25 @@ func groupByAndFunctions(groupBy []string, functionColumns map[string][]string, 
 		}
 	}
 
-	for i, _ := range newTable.Rows {
+	// Compute AVG values for groups.
+	for i := range newTable.Rows {
 		for functionCol, functions := range functionColumns {
 			for _, function := range functions {
-				if function == "AVG" {
-					newTable.Rows[i][functionCol+"AVG"] = newTable.Rows[i][functionCol+"SUM"] / newTable.Rows[i][functionCol+"COUNT"]
+				if strings.ToUpper(function) == "AVG" {
+					sumKey := functionCol + "SUM"
+					countKey := functionCol + "COUNT"
+					sumVal := newTable.Rows[i][sumKey].(float64)
+					countVal := newTable.Rows[i][countKey].(float64)
+					if countVal == 0 {
+						newTable.Rows[i][functionCol+"AVG"] = 0.0
+					} else {
+						newTable.Rows[i][functionCol+"AVG"] = sumVal / countVal
+					}
 				}
 			}
 		}
 	}
 
 	return newTable
+
 }
