@@ -73,6 +73,13 @@ type ASTNode struct {
 	// Select node
 	columnNames []string
 
+	containsGroupBy bool
+	groupByColumns  []string
+	containsLimit   bool
+	limit           int
+	containsOffset  bool
+	offset          int
+
 	// Create node
 	tableName string
 	columns   []*ASTNode
@@ -222,6 +229,37 @@ func parseSelectCommand(tokens []*Token, tokenIndex *int) *ASTNode {
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_FROM)
 	(*tokenIndex)++ // Move past FROM token
 	selectNode.tableName = tokens[*tokenIndex].value
+
+	if checkType(tokens[*tokenIndex], TOKEN_WHERE) {
+
+	}
+
+	if checkType(tokens[*tokenIndex], TOKEN_GROUP) {
+		(*tokenIndex)++
+		if checkType(tokens[*tokenIndex], TOKEN_BY) {
+			selectNode.containsGroupBy = true
+		} else {
+			panic("Expected by")
+		}
+	}
+
+	if checkType(tokens[*tokenIndex], TOKEN_HAVING) {
+
+	}
+
+	if checkType(tokens[*tokenIndex], TOKEN_ORDER) {
+		if checkType(tokens[*tokenIndex], TOKEN_BY) {
+
+		} else {
+			panic("Expected by")
+		}
+	}
+	if checkType(tokens[*tokenIndex], TOKEN_LIMIT) {
+
+	}
+	if checkType(tokens[*tokenIndex], TOKEN_OFFSET) {
+
+	}
 
 	return &selectNode
 }

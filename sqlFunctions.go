@@ -6,10 +6,11 @@ import (
 )
 
 type Column struct {
-	Name         string
-	Type         string
-	Conditions   []string
-	varCharLimit int
+	Name           string
+	Type           string
+	Conditions     []string
+	varCharLimit   int
+	functionResult bool
 }
 
 type Table struct {
