@@ -229,15 +229,30 @@ func parseSelectCommand(tokens []*Token, tokenIndex *int) *ASTNode {
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_FROM)
 	(*tokenIndex)++ // Move past FROM token
 	selectNode.tableName = tokens[*tokenIndex].value
-
+	(*tokenIndex)++ // Move past name token
 	if checkType(tokens[*tokenIndex], TOKEN_WHERE) {
 
 	}
 
+	fmt.Println("HERERWEWRE")
+	fmt.Println(tokens[*tokenIndex].value)
+
 	if checkType(tokens[*tokenIndex], TOKEN_GROUP) {
 		(*tokenIndex)++
+		fmt.Println("HERERWEWRE")
 		if checkType(tokens[*tokenIndex], TOKEN_BY) {
+			fmt.Println("HERERWEWRE")
 			selectNode.containsGroupBy = true
+			(*tokenIndex)++
+			for isTokenSELECTSpliter(tokens, tokenIndex) {
+				selectNode.groupByColumns = append(selectNode.groupByColumns, tokens[*tokenIndex].value)
+				(*tokenIndex)++
+				if isTokenSELECTSpliter(tokens, tokenIndex) {
+					break
+				}
+				panicIfWrongType(tokens[*tokenIndex], TOKEN_COMMA)
+				(*tokenIndex)++ // Move past comma
+			}
 		} else {
 			panic("Expected by")
 		}
@@ -448,6 +463,9 @@ func printAST(node *ASTNode, indent int) {
 					fmt.Printf(" AS %s", node.columnNames[i])
 				}
 				fmt.Println()
+			}
+			if node.containsGroupBy {
+				fmt.Printf("%sGROUP BY: %s\n", indentStr+"  ", strings.Join(node.groupByColumns, ", "))
 			}
 		}
 		fmt.Printf("%sFROM: %s\n", indentStr+"  ", node.tableName)

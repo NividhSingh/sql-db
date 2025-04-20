@@ -109,12 +109,12 @@ func insertIntoFromAST(insertNode *ASTNode) {
 	fmt.Printf("Inserted row into %s\n", tableName)
 }
 
-func selectFromAST(selectNode *ASTNode) {
-	tableName := selectNode.tableName
-	selectColumns := selectNode.columns
-	selectColumnNames := selectNode.columnName
+// func selectFromAST(selectNode *ASTNode) {
+// 	tableName := selectNode.tableName
+// 	selectColumns := selectNode.columns
+// 	selectColumnNames := selectNode.columnName
 
-}
+// }
 
 func evalExpression(expr *ASTNode, row map[string]interface{}) interface{} {
 	switch expr.Type {

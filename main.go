@@ -4,7 +4,7 @@ func main() {
 	// Input command string with CREATE, INSERT, and SELECT commands.
 	command := "CREATE TABLE myTable (col1 VARCHAR (255) PRIMARY KEY, col2 INT); " +
 		"INSERT INTO myTable (col1, col2) VALUES ('John', 42); " +
-		"SELECT col1 AS c1, col2 FROM myTable;"
+		"SELECT col1 AS c1, col2 FROM myTable GROUP BY c1;"
 
 	// Initialize the lexer with the command string.
 	lexer := &Lexer{
@@ -26,6 +26,10 @@ func main() {
 
 	// Parse the tokens into AST nodes.
 	astNodes := parseCommands(tokens)
+
+	for _, node := range astNodes {
+		printAST(node, 0)
+	}
 
 	for _, astNode := range astNodes {
 		if astNode.Type == AST_CREATE {
