@@ -4,7 +4,7 @@ This project is a lightweight statistical database engine built from scratch wit
 
 ---
 
-## ✨ Features
+## Features
 
 - Command-line interface for issuing SQL-like queries
 - Lexer and parser for simplified SQL grammar
@@ -17,7 +17,7 @@ This project is a lightweight statistical database engine built from scratch wit
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 1. **CLI Input**: Users enter SQL-style queries via the terminal.
 2. **Lexer**: Breaks input into tokens (keywords, identifiers, operators, etc.).
@@ -31,7 +31,7 @@ This project is a lightweight statistical database engine built from scratch wit
 
 ---
 
-## 🔐 Differential Privacy
+## Differential Privacy
 
 We apply differential privacy to protect sensitive information in query results. This is especially important in statistical databases, where simple aggregate queries can leak private information. Our MVP adds **Laplace noise** based on a configurable privacy parameter (ε) to:
 - Count queries (e.g., `SELECT COUNT(*)`)
@@ -39,7 +39,7 @@ We apply differential privacy to protect sensitive information in query results.
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Go (1.18+ recommended)
