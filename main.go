@@ -39,8 +39,6 @@ func main() {
 		printAST(node, 0)
 	}
 
-	printDatabase()
-
 	for _, astNode := range astNodes {
 		if astNode.Type == AST_CREATE {
 			createTableFromAST(astNode)
@@ -51,4 +49,5 @@ func main() {
 			printTable(result)
 		}
 	}
+	printDatabase()
 }

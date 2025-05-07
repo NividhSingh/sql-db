@@ -428,9 +428,19 @@ func getNextToken(lexer *Lexer) Token {
 		return makeToken(lexer, TOKEN_GREATER_THAN, ">")
 	case '.':
 		return makeToken(lexer, TOKEN_DOT, ".")
+
 	case '\'':
-		// For simplicity, return a token for a single quote.
-		return makeToken(lexer, TOKEN_SINGLE_QUOTE, "'")
+		// Start scanning a VARCHAR literal
+		for !atEnd(lexer) && peek(lexer) != '\'' {
+			advance(lexer)
+		}
+		if atEnd(lexer) {
+			return makeToken(lexer, TOKEN_ILLEGAL, "Unterminated string")
+		}
+		advance(lexer)                                        // Consume closing quote
+		value := lexer.input[lexer.start+1 : lexer.current-1] // Exclude quotes
+		return makeToken(lexer, TOKEN_VARCHAR_LITERAL, value)
+
 	case '"':
 		return makeToken(lexer, TOKEN_DOUBLE_QUOTE, "\"")
 	default:

@@ -31,15 +31,26 @@ func insertIntoFromAST(insertNode *ASTNode) {
 		return
 	}
 
+	table := database[tableName]
 	columnNames := insertNode.columnNames
 	columnValues := insertNode.columnValues
+
+	// Support implicit column list
+	if len(columnNames) == 0 {
+		if len(columnValues) != len(table.Columns) {
+			fmt.Println("Value count doesn't match number of table columns")
+			return
+		}
+		for _, col := range table.Columns {
+			columnNames = append(columnNames, col.Name)
+		}
+	}
 
 	if len(columnNames) != len(columnValues) {
 		fmt.Println("Mismatch between number of column names and values")
 		return
 	}
 
-	table := database[tableName]
 	newRow := make(map[string]interface{})
 
 	for _, col := range table.Columns {
@@ -77,6 +88,8 @@ func insertIntoFromAST(insertNode *ASTNode) {
 						return
 					}
 					newRow[col.Name] = intVal
+				} else {
+					newRow[col.Name] = nil
 				}
 			case "FLOAT":
 				if val != "" {
@@ -93,7 +106,7 @@ func insertIntoFromAST(insertNode *ASTNode) {
 				if strings.HasPrefix(strings.ToUpper(col.Type), "VARCHAR") {
 					maxLen := col.varCharLimit
 					if len(val) > maxLen {
-						fmt.Printf("Column %s exceeds maximum VARCHAR(%d)\n", col.Name, maxLen)
+						fmt.Printf("Column %s exceeds VARCHAR(%d)\n", col.Name, maxLen)
 						return
 					}
 					newRow[col.Name] = val

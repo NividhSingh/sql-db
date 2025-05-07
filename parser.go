@@ -422,60 +422,65 @@ func parseSelectCommand(tokens []*Token, tokenIndex *int) *ASTNode {
 
 func parseInsertCommand(tokens []*Token, tokenIndex *int) *ASTNode {
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_INSERT)
-	(*tokenIndex)++ // Move past INSERT token
+	(*tokenIndex)++ // INSERT
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_INTO)
-	(*tokenIndex)++ // Move past INTO token
+	(*tokenIndex)++ // INTO
 
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_IDENTIFIER)
 	newInsertNode := ASTNode{Type: AST_INSERT}
 	newInsertNode.tableName = tokens[*tokenIndex].value
-	(*tokenIndex)++ // Move past table name token
+	(*tokenIndex)++ // Table name
 
-	panicIfWrongType(tokens[*tokenIndex], TOKEN_LPAREN)
-	(*tokenIndex)++ // Move past LPAREN token
+	// Optional column list
+	if checkType(tokens[*tokenIndex], TOKEN_LPAREN) {
+		(*tokenIndex)++ // LPAREN
 
-	// Parse column names.
-	for !checkType(tokens[*tokenIndex], TOKEN_RPAREN) {
-		panicIfWrongType(tokens[*tokenIndex], TOKEN_IDENTIFIER)
-		columnName := tokens[*tokenIndex].value
-		newInsertNode.columnNames = append(newInsertNode.columnNames, columnName)
-		(*tokenIndex)++ // Move past column name token
-		if !checkType(tokens[*tokenIndex], TOKEN_RPAREN) {
-			panicIfWrongType(tokens[*tokenIndex], TOKEN_COMMA)
-			(*tokenIndex)++ // Move past COMMA token
+		for !checkType(tokens[*tokenIndex], TOKEN_RPAREN) {
+			panicIfWrongType(tokens[*tokenIndex], TOKEN_IDENTIFIER)
+			columnName := tokens[*tokenIndex].value
+			newInsertNode.columnNames = append(newInsertNode.columnNames, columnName)
+			(*tokenIndex)++
+
+			if !checkType(tokens[*tokenIndex], TOKEN_RPAREN) {
+				panicIfWrongType(tokens[*tokenIndex], TOKEN_COMMA)
+				(*tokenIndex)++
+			}
 		}
+		(*tokenIndex)++ // RPAREN
 	}
-	(*tokenIndex)++ // Move past RPAREN token
 
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_VALUES)
-	(*tokenIndex)++ // Move past VALUES token
+	(*tokenIndex)++ // VALUES
 
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_LPAREN)
-	(*tokenIndex)++ // Move past LPAREN token
+	(*tokenIndex)++ // LPAREN
 
-	// Parse column values.
+	// Values
 	for !checkType(tokens[*tokenIndex], TOKEN_RPAREN) {
 		if checkType(tokens[*tokenIndex], TOKEN_SINGLE_QUOTE) {
-			(*tokenIndex)++ // Skip opening quote
+			(*tokenIndex)++ // Opening quote
 			panicIfWrongType(tokens[*tokenIndex], TOKEN_IDENTIFIER)
-			columnValue := tokens[*tokenIndex].value
-			newInsertNode.columnValues = append(newInsertNode.columnValues, columnValue)
-			(*tokenIndex)++ // Move past identifier
+			val := tokens[*tokenIndex].value
+			newInsertNode.columnValues = append(newInsertNode.columnValues, val)
+			(*tokenIndex)++
 			panicIfWrongType(tokens[*tokenIndex], TOKEN_SINGLE_QUOTE)
-			(*tokenIndex)++ // Move past closing quote
+			(*tokenIndex)++ // Closing quote
 		} else {
-			// If not in quotes, assume an identifier.
-			columnValue := tokens[*tokenIndex].value
-			newInsertNode.columnValues = append(newInsertNode.columnValues, columnValue)
-			(*tokenIndex)++ // Move past token
+			val := tokens[*tokenIndex].value
+			newInsertNode.columnValues = append(newInsertNode.columnValues, val)
+			(*tokenIndex)++
 		}
+
 		if !checkType(tokens[*tokenIndex], TOKEN_RPAREN) {
 			panicIfWrongType(tokens[*tokenIndex], TOKEN_COMMA)
-			(*tokenIndex)++ // Move past COMMA token
+			(*tokenIndex)++
 		}
 	}
-	(*tokenIndex)++ // Move past RPAREN token
-	(*tokenIndex)++ // Move past SEMICOLON token
+
+	(*tokenIndex)++ // RPAREN
+	if checkType(tokens[*tokenIndex], TOKEN_SEMICOLON) {
+		(*tokenIndex)++
+	}
 
 	return &newInsertNode
 }
