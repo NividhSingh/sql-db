@@ -1,12 +1,18 @@
 package main
 
+import (
+	"fmt"
+	"os"
+)
+
 func main() {
-	// Input command string with CREATE, INSERT, and SELECT commands.
-	command := "CREATE TABLE myTable (col1 VARCHAR (255) PRIMARY KEY, col2 INT); " +
-		"INSERT INTO myTable (col1, col2) VALUES ('John', 42); " +
-		"INSERT INTO myTable (col1, col2) VALUES ('Bob', 42); " +
-		"INSERT INTO myTable (col1, col2) VALUES ('Bob', 22); " +
-		"SELECT col1 AS c1, AVG(col2) FROM myTable GROUP BY col1;"
+	// Read SQL commands from file
+	data, err := os.ReadFile("input.sql")
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		return
+	}
+	command := string(data)
 
 	// Initialize the lexer with the command string.
 	lexer := &Lexer{
@@ -41,10 +47,8 @@ func main() {
 		} else if astNode.Type == AST_INSERT {
 			insertIntoFromAST(astNode)
 		} else if astNode.Type == AST_SELECT {
-			// selectFromAST(astNode)
 			result := selectFromAST(astNode)
 			printTable(result)
 		}
 	}
-
 }
