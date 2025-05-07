@@ -170,3 +170,4 @@ INSERT INTO MedicalRecords VALUES ('Laura', 'Garcia', 35, 'Female', 'A-', 152, 8
 INSERT INTO MedicalRecords VALUES ('Jane', 'Johnson', 76, 'Female', 'AB-', 193, 99, 26.6, '116/89', 69, 15, 37.0, 112, 194, 1, 0, 0, 0, 1, 0);
 INSERT INTO MedicalRecords VALUES ('Laura', 'Garcia', 86, 'Female', 'O+', 162, 51, 19.4, '104/88', 86, 12, 37.9, 112, 235, 1, 1, 1, 1, 0, 0);
 INSERT INTO MedicalRecords VALUES ('Robert', 'Brown', 54, 'Male', 'AB+', 168, 56, 19.8, '120/61', 99, 14, 36.0, 138, 218, 1, 1, 0, 0, 1, 1);
+SELECT blood_type, SUM(has_diabetes), sex AS male_or_female FROM MedicalRecords GROUP BY blood_type, sex;
