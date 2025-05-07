@@ -41,6 +41,19 @@ const (
 	AST_COLUMN
 )
 
+type columnType int
+
+const (
+	COLUMN_TYPE_NOT_INCLUDED columnType = iota
+	COLUMN_TYPE_GROUP_BY
+	COLUMN_TYPE_NORMAL
+	COLUMN_TYPE_MAX
+	COLUMN_TYPE_MIN
+	COLUMN_TYPE_AVERAGE
+	COLUMN_TYPE_COUNT
+	COLUMN_TYPE_SUM
+)
+
 type ASTNode struct {
 	// Common fields
 	Type      ASTNodeType
@@ -71,7 +84,9 @@ type ASTNode struct {
 	constraints  []string
 
 	// Select node
-	columnNames []string
+	columnNames   []string
+	columnTypes   []columnType
+	columnAliases []string
 
 	containsGroupBy bool
 	groupByColumns  []string
@@ -200,84 +215,210 @@ func isTokenSELECTSpliter(tokens []*Token, tokenIndex *int) bool {
 		t == TOKEN_COMMA || t == TOKEN_SEMICOLON
 }
 
+func checkTokenIsFunction(token *Token) bool {
+	if token._type == TOKEN_MAX || token._type == TOKEN_MIN || token._type == TOKEN_AVG || token._type == TOKEN_SUM || token._type == TOKEN_COUNT {
+		return true
+	}
+	return false
+}
+
+func tokenToColumnType(token *Token) columnType {
+	switch token._type {
+	case TOKEN_MAX:
+		return COLUMN_TYPE_MAX
+	case TOKEN_MIN:
+
+		return COLUMN_TYPE_MIN
+	case TOKEN_AVG:
+
+		return COLUMN_TYPE_AVERAGE
+	case TOKEN_SUM:
+		return COLUMN_TYPE_SUM
+	case TOKEN_COUNT:
+		return COLUMN_TYPE_COUNT
+	default:
+		panic("Unknown token type")
+	}
+}
 func parseSelectCommand(tokens []*Token, tokenIndex *int) *ASTNode {
+	fmt.Println("Starting parseSelectCommand")
+
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_SELECT)
-	(*tokenIndex)++ // Move past SELECT token
+	fmt.Println("Matched SELECT token")
+	(*tokenIndex)++
 
 	selectNode := ASTNode{Type: AST_SELECT}
 	selectNode.columns = make([]*ASTNode, 0)
 	selectNode.columnNames = make([]string, 0)
+	selectNode.columnAliases = make([]string, 0)
+	selectNode.columnTypes = make([]columnType, 0)
 
-	expectMore := true
-	for expectMore {
-		selectNode.columns = append(selectNode.columns, parseExpression(tokens, tokenIndex))
-		if checkType(tokens[*tokenIndex], TOKEN_AS) {
-			(*tokenIndex)++ // Move past AS token
-			selectNode.columnNames = append(selectNode.columnNames, tokens[*tokenIndex].value)
-			(*tokenIndex)++
-		} else {
-			selectNode.columnNames = append(selectNode.columnNames, "")
-		}
+	if tokens[*tokenIndex]._type == TOKEN_STAR {
+		fmt.Println("Found * token — SELECT * not yet implemented")
+		// Go through each one (not implemented here)
+	} else {
+		fmt.Println("Parsing SELECT column list...")
+		for tokens[*tokenIndex]._type != TOKEN_FROM {
+			if checkTokenIsFunction(tokens[*tokenIndex]) {
+				fmt.Printf("Found function: %s\n", tokens[*tokenIndex].value)
+				selectNode.columnTypes = append(selectNode.columnTypes, tokenToColumnType(tokens[*tokenIndex]))
 
-		if checkType(tokens[*tokenIndex], TOKEN_COMMA) {
-			(*tokenIndex)++ // Move past comma and keep looping
-		} else {
-			expectMore = false
+				(*tokenIndex)++
+
+				panicIfWrongType(tokens[*tokenIndex], TOKEN_LPAREN)
+				fmt.Println("Matched LPAREN after function")
+				(*tokenIndex)++
+
+				selectNode.columnNames = append(selectNode.columnNames, tokens[*tokenIndex].value)
+				fmt.Printf("Added function argument column: %s\n", tokens[*tokenIndex].value)
+				(*tokenIndex)++
+
+				panicIfWrongType(tokens[*tokenIndex], TOKEN_RPAREN)
+				fmt.Println("Matched RPAREN after function argument")
+				(*tokenIndex)++
+			} else {
+				fmt.Printf("Found regular column: %s\n", tokens[*tokenIndex].value)
+				selectNode.columnNames = append(selectNode.columnNames, tokens[*tokenIndex].value)
+				selectNode.columnTypes = append(selectNode.columnTypes, COLUMN_TYPE_NORMAL)
+				(*tokenIndex)++
+			}
+
+			if tokens[*tokenIndex]._type == TOKEN_AS {
+				(*tokenIndex)++
+				selectNode.columnAliases = append(selectNode.columnAliases, tokens[*tokenIndex].value)
+				fmt.Printf("Added alias: %s\n", tokens[*tokenIndex].value)
+				(*tokenIndex)++
+			} else {
+				selectNode.columnAliases = append(selectNode.columnAliases, selectNode.columnNames[len(selectNode.columnNames)-1])
+				fmt.Printf("No alias, using column name as alias: %s\n", selectNode.columnNames[len(selectNode.columnNames)-1])
+			}
+
+			if tokens[*tokenIndex]._type == TOKEN_COMMA {
+				fmt.Println("Found comma, moving to next column")
+				(*tokenIndex)++
+			}
 		}
 	}
 
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_FROM)
-	(*tokenIndex)++ // Move past FROM token
+	fmt.Println("Matched FROM token")
+	(*tokenIndex)++
+
 	selectNode.tableName = tokens[*tokenIndex].value
-	(*tokenIndex)++ // Move past name token
-	if checkType(tokens[*tokenIndex], TOKEN_WHERE) {
+	fmt.Printf("Set table name: %s\n", selectNode.tableName)
+	(*tokenIndex)++
 
-	}
-
-	fmt.Println("HERERWEWRE")
-	fmt.Println(tokens[*tokenIndex].value)
-
-	if checkType(tokens[*tokenIndex], TOKEN_GROUP) {
+	if tokens[*tokenIndex]._type == TOKEN_GROUP {
+		fmt.Println("Found GROUP token")
 		(*tokenIndex)++
-		fmt.Println("HERERWEWRE")
-		if checkType(tokens[*tokenIndex], TOKEN_BY) {
-			fmt.Println("HERERWEWRE")
-			selectNode.containsGroupBy = true
-			(*tokenIndex)++
-			for isTokenSELECTSpliter(tokens, tokenIndex) {
-				selectNode.groupByColumns = append(selectNode.groupByColumns, tokens[*tokenIndex].value)
+
+		panicIfWrongType(tokens[*tokenIndex], TOKEN_BY)
+		fmt.Println("Matched BY token after GROUP")
+		(*tokenIndex)++
+
+		fmt.Println("Parsing GROUP BY columns...")
+		for !isTokenSELECTSpliter(tokens, tokenIndex) {
+			if tokens[*tokenIndex]._type == TOKEN_COMMA {
+				fmt.Println("Skipping comma in GROUP BY")
 				(*tokenIndex)++
-				if isTokenSELECTSpliter(tokens, tokenIndex) {
+			}
+
+			col := tokens[*tokenIndex].value
+			fmt.Printf("Checking GROUP BY column: %s\n", col)
+			matched := false
+
+			for i, name := range selectNode.columnNames {
+				if name == col {
+					selectNode.columnTypes[i] = COLUMN_TYPE_GROUP_BY
+					fmt.Printf("Marked column %s as GROUP BY\n", col)
+					matched = true
 					break
 				}
-				panicIfWrongType(tokens[*tokenIndex], TOKEN_COMMA)
-				(*tokenIndex)++ // Move past comma
 			}
-		} else {
-			panic("Expected by")
+
+			if !matched {
+				fmt.Println("Current SELECT column names:")
+				for _, name := range selectNode.columnNames {
+					fmt.Printf(" - %s\n", name)
+				}
+				panic(fmt.Sprintf("GROUP BY column %q not in SELECT list", col))
+			}
+
+			(*tokenIndex)++
 		}
 	}
 
-	if checkType(tokens[*tokenIndex], TOKEN_HAVING) {
-
-	}
-
-	if checkType(tokens[*tokenIndex], TOKEN_ORDER) {
-		if checkType(tokens[*tokenIndex], TOKEN_BY) {
-
-		} else {
-			panic("Expected by")
-		}
-	}
-	if checkType(tokens[*tokenIndex], TOKEN_LIMIT) {
-
-	}
-	if checkType(tokens[*tokenIndex], TOKEN_OFFSET) {
-
-	}
-
+	fmt.Println("Finished parseSelectCommand successfully")
 	return &selectNode
 }
+
+// expectMore := true
+// for expectMore {
+// 	selectNode.columns = append(selectNode.columns, parseExpression(tokens, tokenIndex))
+// 	if checkType(tokens[*tokenIndex], TOKEN_AS) {
+// 		(*tokenIndex)++ // Move past AS token
+// 		selectNode.columnNames = append(selectNode.columnNames, tokens[*tokenIndex].value)
+// 		(*tokenIndex)++
+// 	} else {
+// 		selectNode.columnNames = append(selectNode.columnNames, "")
+// 	}
+
+// 	if checkType(tokens[*tokenIndex], TOKEN_COMMA) {
+// 		(*tokenIndex)++ // Move past comma and keep looping
+// 	} else {
+// 		expectMore = false
+// 	}
+// }
+
+// panicIfWrongType(tokens[*tokenIndex], TOKEN_FROM)
+// (*tokenIndex)++ // Move past FROM token
+// selectNode.tableName = tokens[*tokenIndex].value
+// (*tokenIndex)++ // Move past name token
+// if checkType(tokens[*tokenIndex], TOKEN_WHERE) {
+
+// }
+
+// fmt.Println("HERERWEWRE")
+// fmt.Println(tokens[*tokenIndex].value)
+
+// if checkType(tokens[*tokenIndex], TOKEN_GROUP) {
+// 	(*tokenIndex)++
+// 	fmt.Println("HERERWEWRE")
+// 	if checkType(tokens[*tokenIndex], TOKEN_BY) {
+// 		fmt.Println("HERERWEWRE")
+// 		selectNode.containsGroupBy = true
+// 		(*tokenIndex)++
+// 		for isTokenSELECTSpliter(tokens, tokenIndex) {
+// 			selectNode.groupByColumns = append(selectNode.groupByColumns, tokens[*tokenIndex].value)
+// 			(*tokenIndex)++
+// 			if isTokenSELECTSpliter(tokens, tokenIndex) {
+// 				break
+// 			}
+// 			panicIfWrongType(tokens[*tokenIndex], TOKEN_COMMA)
+// 			(*tokenIndex)++ // Move past comma
+// 		}
+// 	} else {
+// 		panic("Expected by")
+// 	}
+// }
+
+// if checkType(tokens[*tokenIndex], TOKEN_HAVING) {
+
+// }
+
+// if checkType(tokens[*tokenIndex], TOKEN_ORDER) {
+// 	if checkType(tokens[*tokenIndex], TOKEN_BY) {
+
+// 	} else {
+// 		panic("Expected by")
+// 	}
+// }
+// if checkType(tokens[*tokenIndex], TOKEN_LIMIT) {
+
+// }
+// if checkType(tokens[*tokenIndex], TOKEN_OFFSET) {
+
+// }
 
 func parseInsertCommand(tokens []*Token, tokenIndex *int) *ASTNode {
 	panicIfWrongType(tokens[*tokenIndex], TOKEN_INSERT)

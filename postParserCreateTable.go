@@ -109,12 +109,150 @@ func insertIntoFromAST(insertNode *ASTNode) {
 	fmt.Printf("Inserted row into %s\n", tableName)
 }
 
-// func selectFromAST(selectNode *ASTNode) {
-// 	tableName := selectNode.tableName
-// 	selectColumns := selectNode.columns
-// 	selectColumnNames := selectNode.columnName
+func isGroupByColumn(columnTypes []columnType, columnNames []string, columnName string) bool {
+	for i, name := range columnNames {
+		if name == columnName {
+			return columnTypes[i] == COLUMN_TYPE_GROUP_BY
+		}
+	}
+	return false
+}
 
-// }
+func selectFromAST(selectNode *ASTNode) Table {
+	tableName := selectNode.tableName
+	referenceTable := database[tableName]
+
+	// 1) Build new schema using original column names
+	newColumns := make([]Column, len(selectNode.columnNames))
+	for i, selName := range selectNode.columnNames {
+		// find the original Column metadata
+		var orig Column
+		for _, c := range referenceTable.Columns {
+			if c.Name == selName {
+				orig = c
+				break
+			}
+		}
+		if orig.Name == "" {
+			panic(fmt.Sprintf("column %q not found in table %q", selName, tableName))
+		}
+
+		// use original column name here; alias will be applied later
+		if selectNode.columnTypes[i] == COLUMN_TYPE_GROUP_BY || selectNode.columnTypes[i] == COLUMN_TYPE_NORMAL {
+			newColumns[i] = Column{
+				Name:           selName,
+				Type:           orig.Type,
+				Conditions:     orig.Conditions,
+				varCharLimit:   orig.varCharLimit,
+				functionResult: false,
+			}
+		} else {
+			newColumns[i] = Column{
+				Name:           selName,
+				Type:           "float64",
+				Conditions:     nil,
+				varCharLimit:   0,
+				functionResult: true,
+			}
+		}
+	}
+
+	// Prepare the result table
+	result := Table{
+		Name:    "result",
+		Columns: newColumns,
+		Rows:    []map[string]interface{}{},
+	}
+
+	// identify which columns are GROUP BY by index
+	groupByIdx := []int{}
+	for i, ct := range selectNode.columnTypes {
+		if ct == COLUMN_TYPE_GROUP_BY {
+			groupByIdx = append(groupByIdx, i)
+		}
+	}
+
+	// 2) Iterate over each source row
+	for _, srcRow := range referenceTable.Rows {
+		// look for an existing bucket
+		bucket := -1
+		for ri, existing := range result.Rows {
+			match := true
+			for _, gi := range groupByIdx {
+				original := selectNode.columnNames[gi]
+				if existing[original] != srcRow[original] {
+					fmt.Printf("Table %s does not existabcd\n", existing[original])
+					fmt.Printf("Table %s does not existabcd\n", srcRow[original])
+
+					match = false
+					break
+				} else {
+
+					fmt.Printf("Table %s does existabcd\n", existing[original])
+				}
+			}
+			if match {
+				bucket = ri
+				break
+			}
+		}
+
+		if bucket >= 0 {
+			// 3a) update aggregates
+			for i, ct := range selectNode.columnTypes {
+				original := selectNode.columnNames[i]
+				srcVal := srcRow[original]
+
+				switch ct {
+				case COLUMN_TYPE_SUM:
+					result.Rows[bucket][original] = toFloat64(result.Rows[bucket][original]) + toFloat64(srcVal)
+				case COLUMN_TYPE_COUNT:
+					result.Rows[bucket][original] = toFloat64(result.Rows[bucket][original]) + 1
+				case COLUMN_TYPE_MIN:
+					result.Rows[bucket][original] = min(result.Rows[bucket][original], srcVal)
+				case COLUMN_TYPE_MAX:
+					result.Rows[bucket][original] = max(result.Rows[bucket][original], srcVal)
+				}
+			}
+		} else {
+			// 3b) create new bucket
+			newRow := make(map[string]interface{}, len(newColumns))
+			for i, ct := range selectNode.columnTypes {
+				original := selectNode.columnNames[i]
+				srcVal := srcRow[original]
+
+				switch ct {
+				case COLUMN_TYPE_SUM:
+					newRow[original] = toFloat64(srcVal)
+				case COLUMN_TYPE_COUNT:
+					newRow[original] = float64(1)
+				case COLUMN_TYPE_MIN, COLUMN_TYPE_MAX:
+					newRow[original] = srcVal
+				default:
+					newRow[original] = srcVal
+				}
+			}
+			result.Rows = append(result.Rows, newRow)
+		}
+	}
+
+	// 4) Rename column names and row keys to aliases
+	for i := range newColumns {
+		original := selectNode.columnNames[i]
+		alias := selectNode.columnAliases[i]
+		if original == alias {
+			continue
+		}
+		newColumns[i].Name = alias
+		for _, row := range result.Rows {
+			row[alias] = row[original]
+			delete(row, original)
+		}
+	}
+	result.Columns = newColumns
+
+	return result
+}
 
 func evalExpression(expr *ASTNode, row map[string]interface{}) interface{} {
 	switch expr.Type {
