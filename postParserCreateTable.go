@@ -165,7 +165,7 @@ func selectFromAST(selectNode *ASTNode) Table {
 
 		// compute alias: user‐supplied if given, otherwise for aggregates use func_origName
 		alias := selectNode.columnAliases[i]
-		fmt.Println("selectFromAST: origName=%s, typ=%s, vis=%t, alias=%s", origName, typ, vis, alias)
+		// fmt.Println("selectFromAST: origName=%s, typ=%s, vis=%t, alias=%s", origName, typ, vis, alias)
 		if alias == "" && ct != COLUMN_TYPE_NORMAL && ct != COLUMN_TYPE_GROUP_BY {
 			switch ct {
 			case COLUMN_TYPE_SUM:
