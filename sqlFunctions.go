@@ -5,12 +5,15 @@ import (
 	"strings"
 )
 
+// Add Visible here:
 type Column struct {
 	Name           string
+	Alias          string
 	Type           string
 	Conditions     []string
-	varCharLimit   int
-	functionResult bool
+	VarCharLimit   int
+	FunctionResult bool
+	Visible        bool
 }
 
 type Table struct {
@@ -135,46 +138,65 @@ func processSelectFromTable(command string) Table {
 */
 // printTable prints a single table in grid format.
 
+// ------------------- PRINT only Visible columns -------------------
+
 func printTable(table Table) {
-	if len(table.Columns) == 0 {
+	// filter only visible columns
+	visCols := []Column{}
+	for _, c := range table.Columns {
+		if c.Visible {
+			visCols = append(visCols, c)
+		}
+	}
+	if len(visCols) == 0 {
 		fmt.Println("Empty result")
 		return
 	}
-	cols := make([]string, len(table.Columns))
-	widths := make([]int, len(table.Columns))
-	for i, col := range table.Columns {
-		cols[i] = col.Name
-		widths[i] = len(col.Name)
+
+	// compute widths based on alias or name
+	widths := make([]int, len(visCols))
+	labels := make([]string, len(visCols))
+	for i, col := range visCols {
+		label := col.Name
+		if col.Alias != "" {
+			label = col.Alias
+		}
+		labels[i] = label
+		widths[i] = len(label)
 	}
 	for _, row := range table.Rows {
-		for i, col := range table.Columns {
-			cellStr := fmt.Sprintf("%v", row[col.Name])
-			if len(cellStr) > widths[i] {
-				widths[i] = len(cellStr)
+		for i, col := range visCols {
+			cell := fmt.Sprintf("%v", row[col.Name])
+			if len(cell) > widths[i] {
+				widths[i] = len(cell)
 			}
 		}
 	}
+
+	// separator line
 	sep := "+"
 	for _, w := range widths {
 		sep += strings.Repeat("-", w+2) + "+"
 	}
+
+	// header
 	header := "|"
-	for i, name := range cols {
-		header += " " + fmt.Sprintf("%-*s", widths[i], name) + " |"
+	for i, label := range labels {
+		header += " " + fmt.Sprintf("%-*s", widths[i], label) + " |"
 	}
+
 	fmt.Println(sep)
 	fmt.Println(header)
 	fmt.Println(sep)
 	for _, row := range table.Rows {
-		rowStr := "|"
-		for i, col := range table.Columns {
-			cellStr := fmt.Sprintf("%v", row[col.Name])
-			rowStr += " " + fmt.Sprintf("%-*s", widths[i], cellStr) + " |"
+		line := "|"
+		for i, col := range visCols {
+			cell := fmt.Sprintf("%v", row[col.Name])
+			line += " " + fmt.Sprintf("%-*s", widths[i], cell) + " |"
 		}
-		fmt.Println(rowStr)
+		fmt.Println(line)
 	}
 	fmt.Println(sep)
-	fmt.Println("")
 }
 
 // Existing helper functions

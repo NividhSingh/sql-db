@@ -15,10 +15,10 @@ func createTableFromAST(createNode *ASTNode) {
 			Name:         column.name,
 			Type:         column._type,
 			Conditions:   []string{},
-			varCharLimit: 0,
+			VarCharLimit: 0,
 		}
 		if column._type == "VARCHAR" {
-			newColumns[i].varCharLimit = column.varCharLimit
+			newColumns[i].VarCharLimit = column.varCharLimit
 		}
 	}
 	createTable(tableName, newColumns)
@@ -104,7 +104,7 @@ func insertIntoFromAST(insertNode *ASTNode) {
 				}
 			default:
 				if strings.HasPrefix(strings.ToUpper(col.Type), "VARCHAR") {
-					maxLen := col.varCharLimit
+					maxLen := col.VarCharLimit
 					if len(val) > maxLen {
 						fmt.Printf("Column %s exceeds VARCHAR(%d)\n", col.Name, maxLen)
 						return
@@ -131,60 +131,64 @@ func isGroupByColumn(columnTypes []columnType, columnNames []string, columnName 
 	return false
 }
 
+// ------------------- SELECT with AVG support -------------------
+
 func selectFromAST(selectNode *ASTNode) Table {
 	tableName := selectNode.tableName
-	referenceTable := database[tableName]
+	srcTable := database[tableName]
 
-	// 1) Build new schema using original column names
-	newColumns := make([]Column, len(selectNode.columnNames)+1) // +1 for count
-	for i, selName := range selectNode.columnNames {
-		var orig Column
-		for _, c := range referenceTable.Columns {
-			if c.Name == selName {
-				orig = c
-				break
-			}
-		}
-		if orig.Name == "" {
-			panic(fmt.Sprintf("column %q not found in table %q", selName, tableName))
-		}
-
-		if selectNode.columnTypes[i] == COLUMN_TYPE_GROUP_BY || selectNode.columnTypes[i] == COLUMN_TYPE_NORMAL {
-			newColumns[i] = Column{
-				Name:           selName,
-				Type:           orig.Type,
-				Conditions:     orig.Conditions,
-				varCharLimit:   orig.varCharLimit,
-				functionResult: false,
+	// Build schema: one Column per selectNode.column + a hidden "count" for AVG
+	newCols := make([]Column, len(selectNode.columnNames)+1)
+	for i, origName := range selectNode.columnNames {
+		// alias := selectNode.columnAliases[i]
+		ct := selectNode.columnTypes[i]
+		// Decide visibility: only GROUP_BY/NORMAL always visible, AVG visible, others hidden
+		vis := (ct == COLUMN_TYPE_GROUP_BY ||
+			ct == COLUMN_TYPE_NORMAL ||
+			ct == COLUMN_TYPE_SUM || // now SUM columns are visible
+			ct == COLUMN_TYPE_AVG)
+		// vis := (ct == COLUMN_TYPE_GROUP_BY || ct == COLUMN_TYPE_NORMAL || ct == COLUMN_TYPE_AVG)
+		typ := ""
+		if ct == COLUMN_TYPE_GROUP_BY {
+			// look up original type
+			for _, c := range srcTable.Columns {
+				if c.Name == origName {
+					typ = c.Type
+					break
+				}
 			}
 		} else {
-			newColumns[i] = Column{
-				Name:           selName,
-				Type:           "float64",
-				Conditions:     nil,
-				varCharLimit:   0,
-				functionResult: true,
-			}
+			typ = "float64" // aggregates always float64
+		}
+
+		newCols[i] = Column{
+			Name:           origName,
+			Type:           typ,
+			Conditions:     nil,
+			VarCharLimit:   0,
+			FunctionResult: ct != COLUMN_TYPE_NORMAL && ct != COLUMN_TYPE_GROUP_BY,
+			Visible:        vis,
+			Alias:          selectNode.columnAliases[i],
 		}
 	}
-
-	// Add count column
-	countIndex := len(selectNode.columnNames)
-	newColumns[countIndex] = Column{
+	// Hidden global count for AVG denominator
+	countIdx := len(selectNode.columnNames)
+	newCols[countIdx] = Column{
 		Name:           "count",
 		Type:           "float64",
 		Conditions:     nil,
-		varCharLimit:   0,
-		functionResult: true,
+		VarCharLimit:   0,
+		FunctionResult: true,
+		Visible:        false,
 	}
 
 	result := Table{
 		Name:    "result",
-		Columns: newColumns,
+		Columns: newCols,
 		Rows:    []map[string]interface{}{},
 	}
 
-	// Identify GROUP BY indexes
+	// figure out which cols are GROUP_BY
 	groupByIdx := []int{}
 	for i, ct := range selectNode.columnTypes {
 		if ct == COLUMN_TYPE_GROUP_BY {
@@ -192,13 +196,15 @@ func selectFromAST(selectNode *ASTNode) Table {
 		}
 	}
 
-	for _, srcRow := range referenceTable.Rows {
+	// aggregate rows
+	for _, srcRow := range srcTable.Rows {
+		// find matching bucket
 		bucket := -1
-		for ri, existing := range result.Rows {
+		for ri, outRow := range result.Rows {
 			match := true
 			for _, gi := range groupByIdx {
-				original := selectNode.columnNames[gi]
-				if existing[original] != srcRow[original] {
+				orig := selectNode.columnNames[gi]
+				if outRow[orig] != srcRow[orig] {
 					match = false
 					break
 				}
@@ -210,62 +216,60 @@ func selectFromAST(selectNode *ASTNode) Table {
 		}
 
 		if bucket >= 0 {
-			// Update aggregates
+			// update aggregates
+			outRow := result.Rows[bucket]
 			for i, ct := range selectNode.columnTypes {
-				original := selectNode.columnNames[i]
-				srcVal := srcRow[original]
-
+				alias := selectNode.columnNames[i] // columnAliases[i]
 				switch ct {
-				case COLUMN_TYPE_SUM:
-					result.Rows[bucket][original] = toFloat64(result.Rows[bucket][original]) + toFloat64(srcVal)
+				case COLUMN_TYPE_SUM, COLUMN_TYPE_AVG:
+					outRow[alias] = toFloat64(outRow[alias]) + toFloat64(srcRow[selectNode.columnNames[i]])
 				case COLUMN_TYPE_COUNT:
-					result.Rows[bucket][original] = toFloat64(result.Rows[bucket][original]) + 1
+					outRow[alias] = toFloat64(outRow[alias]) + 1
 				case COLUMN_TYPE_MIN:
-					result.Rows[bucket][original] = min(result.Rows[bucket][original], srcVal)
+					outRow[alias] = min(outRow[alias], srcRow[selectNode.columnNames[i]])
 				case COLUMN_TYPE_MAX:
-					result.Rows[bucket][original] = max(result.Rows[bucket][original], srcVal)
+					outRow[alias] = max(outRow[alias], srcRow[selectNode.columnNames[i]])
 				}
 			}
-			// Increment count
-			result.Rows[bucket]["count"] = toFloat64(result.Rows[bucket]["count"]) + 1
+			// always bump count
+			outRow["count"] = toFloat64(outRow["count"]) + 1
 		} else {
-			// Create new bucket
-			newRow := make(map[string]interface{}, len(newColumns))
+			// first time: initialize a new bucket
+			newRow := make(map[string]interface{}, len(newCols))
 			for i, ct := range selectNode.columnTypes {
-				original := selectNode.columnNames[i]
-				srcVal := srcRow[original]
-
+				alias := selectNode.columnNames[i]
+				val := srcRow[selectNode.columnNames[i]]
 				switch ct {
-				case COLUMN_TYPE_SUM:
-					newRow[original] = toFloat64(srcVal)
+				case COLUMN_TYPE_SUM, COLUMN_TYPE_AVG:
+					newRow[alias] = toFloat64(val)
 				case COLUMN_TYPE_COUNT:
-					newRow[original] = float64(1)
+					newRow[alias] = float64(1)
 				case COLUMN_TYPE_MIN, COLUMN_TYPE_MAX:
-					newRow[original] = srcVal
-				default:
-					newRow[original] = srcVal
+					newRow[alias] = val
+				default: // GROUP_BY or NORMAL
+					newRow[alias] = val
 				}
 			}
-			// Initialize count
 			newRow["count"] = float64(1)
 			result.Rows = append(result.Rows, newRow)
 		}
 	}
 
-	// Rename to aliases
-	for i := range selectNode.columnNames {
-		original := selectNode.columnNames[i]
-		alias := selectNode.columnAliases[i]
-		if original == alias {
-			continue
-		}
-		newColumns[i].Name = alias
-		for _, row := range result.Rows {
-			row[alias] = row[original]
-			delete(row, original)
+	// now, post‑process AVG columns: sum/count → avg
+	for _, row := range result.Rows {
+		for i, ct := range selectNode.columnTypes {
+			if ct == COLUMN_TYPE_AVG {
+				alias := selectNode.columnNames[i]
+				sum := toFloat64(row[alias])
+				cnt := toFloat64(row["count"])
+				if cnt != 0 {
+					row[alias] = sum / cnt
+				} else {
+					row[alias] = float64(0)
+				}
+			}
 		}
 	}
-	result.Columns = newColumns
 
 	return result
 }

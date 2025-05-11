@@ -49,5 +49,4 @@ func main() {
 			printTable(result)
 		}
 	}
-	printDatabase()
 }

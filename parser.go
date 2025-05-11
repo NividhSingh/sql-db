@@ -49,7 +49,7 @@ const (
 	COLUMN_TYPE_NORMAL
 	COLUMN_TYPE_MAX
 	COLUMN_TYPE_MIN
-	COLUMN_TYPE_AVERAGE
+	COLUMN_TYPE_AVG
 	COLUMN_TYPE_COUNT
 	COLUMN_TYPE_SUM
 )
@@ -231,7 +231,7 @@ func tokenToColumnType(token *Token) columnType {
 		return COLUMN_TYPE_MIN
 	case TOKEN_AVG:
 
-		return COLUMN_TYPE_AVERAGE
+		return COLUMN_TYPE_AVG
 	case TOKEN_SUM:
 		return COLUMN_TYPE_SUM
 	case TOKEN_COUNT:
@@ -240,6 +240,7 @@ func tokenToColumnType(token *Token) columnType {
 		panic("Unknown token type")
 	}
 }
+
 func parseSelectCommand(tokens []*Token, tokenIndex *int) *ASTNode {
 	fmt.Println("Starting parseSelectCommand")
 
