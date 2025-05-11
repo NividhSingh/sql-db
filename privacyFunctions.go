@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Laplace Noise Function
 func sampleLaplace(b float64) float64 {
 	// Generate a uniform random number in [0,1)
 	u := rand.Float64()
