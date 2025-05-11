@@ -132,7 +132,6 @@ func isGroupByColumn(columnTypes []columnType, columnNames []string, columnName 
 }
 
 // ------------------- SELECT with AVG support -------------------
-
 func selectFromAST(selectNode *ASTNode) Table {
 	tableName := selectNode.tableName
 	srcTable := database[tableName]
@@ -140,17 +139,20 @@ func selectFromAST(selectNode *ASTNode) Table {
 	// Build schema: one Column per selectNode.column + a hidden "count" for AVG
 	newCols := make([]Column, len(selectNode.columnNames)+1)
 	for i, origName := range selectNode.columnNames {
-		// alias := selectNode.columnAliases[i]
 		ct := selectNode.columnTypes[i]
-		// Decide visibility: only GROUP_BY/NORMAL always visible, AVG visible, others hidden
+
+		// decide visibility
 		vis := (ct == COLUMN_TYPE_GROUP_BY ||
 			ct == COLUMN_TYPE_NORMAL ||
-			ct == COLUMN_TYPE_SUM || // now SUM columns are visible
+			ct == COLUMN_TYPE_COUNT ||
+			ct == COLUMN_TYPE_MAX ||
+			ct == COLUMN_TYPE_MIN ||
+			ct == COLUMN_TYPE_SUM ||
 			ct == COLUMN_TYPE_AVG)
-		// vis := (ct == COLUMN_TYPE_GROUP_BY || ct == COLUMN_TYPE_NORMAL || ct == COLUMN_TYPE_AVG)
+
+		// decide type
 		typ := ""
 		if ct == COLUMN_TYPE_GROUP_BY {
-			// look up original type
 			for _, c := range srcTable.Columns {
 				if c.Name == origName {
 					typ = c.Type
@@ -158,7 +160,25 @@ func selectFromAST(selectNode *ASTNode) Table {
 				}
 			}
 		} else {
-			typ = "float64" // aggregates always float64
+			typ = "float64"
+		}
+
+		// compute alias: user‐supplied if given, otherwise for aggregates use func_origName
+		alias := selectNode.columnAliases[i]
+		fmt.Println("selectFromAST: origName=%s, typ=%s, vis=%t, alias=%s", origName, typ, vis, alias)
+		if alias == "" && ct != COLUMN_TYPE_NORMAL && ct != COLUMN_TYPE_GROUP_BY {
+			switch ct {
+			case COLUMN_TYPE_SUM:
+				alias = "sum_" + origName
+			case COLUMN_TYPE_AVG:
+				alias = "avg_" + origName
+			case COLUMN_TYPE_MIN:
+				alias = "min_" + origName
+			case COLUMN_TYPE_MAX:
+				alias = "max_" + origName
+			case COLUMN_TYPE_COUNT:
+				alias = "count_" + origName
+			}
 		}
 
 		newCols[i] = Column{
@@ -168,7 +188,7 @@ func selectFromAST(selectNode *ASTNode) Table {
 			VarCharLimit:   0,
 			FunctionResult: ct != COLUMN_TYPE_NORMAL && ct != COLUMN_TYPE_GROUP_BY,
 			Visible:        vis,
-			Alias:          selectNode.columnAliases[i],
+			Alias:          alias,
 		}
 	}
 	// Hidden global count for AVG denominator
@@ -180,6 +200,7 @@ func selectFromAST(selectNode *ASTNode) Table {
 		VarCharLimit:   0,
 		FunctionResult: true,
 		Visible:        false,
+		Alias:          "count",
 	}
 
 	result := Table{

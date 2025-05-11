@@ -46,6 +46,24 @@ func main() {
 			insertIntoFromAST(astNode)
 		} else if astNode.Type == AST_SELECT {
 			result := selectFromAST(astNode)
+			epsilon := 2.0
+			sensitivity := 1.0
+			// ─── add Laplace noise to all aggregate columns ─────────────────────────
+			for _, col := range result.Columns {
+				// FunctionResult marks SUM, AVG, COUNT, MIN, MAX, etc.
+				if col.FunctionResult {
+					for _, row := range result.Rows {
+						// pull the raw float64 value
+						if v, ok := row[col.Name].(float64); ok {
+							row[col.Name] = addNoise(v, epsilon, sensitivity)
+						}
+					}
+				}
+			}
+
+			result = enforceKAnonymity(result, []string{"blood_type", "male_or_female"}, 10)
+			result = enforceLDiversity(result, []string{"has_diabetes", "sex"}, 3)
+
 			printTable(result)
 		}
 	}

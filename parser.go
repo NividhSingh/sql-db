@@ -290,7 +290,7 @@ func parseSelectCommand(tokens []*Token, tokenIndex *int) *ASTNode {
 				fmt.Printf("Added alias: %s\n", tokens[*tokenIndex].value)
 				(*tokenIndex)++
 			} else {
-				selectNode.columnAliases = append(selectNode.columnAliases, selectNode.columnNames[len(selectNode.columnNames)-1])
+				selectNode.columnAliases = append(selectNode.columnAliases, "") //append(selectNode.columnAliases, selectNode.columnNames[len(selectNode.columnNames)-1])
 				fmt.Printf("No alias, using column name as alias: %s\n", selectNode.columnNames[len(selectNode.columnNames)-1])
 			}
 
