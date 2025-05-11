@@ -1,5 +1,6 @@
 package main
 
+// Initialize Imports
 import (
 	"fmt"
 	"strconv"
